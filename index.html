@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#050608">
+    <title>Nefertem - Tracing the Duat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,700&family=Inter:wght@200;400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050608;
+            --gold: #C5A059;
+            --mx: 0; --my: 0;
+            --shx: 0px; --shy: 0px;
+            --gx: 50%; --gy: 50%;
+        }
+
+        body, html {
+            margin: 0; padding: 0; background-color: var(--bg);
+            color: #E0E0E0; font-family: 'Inter', sans-serif;
+            height: 100vh; 
+            height: 100dvh; /* Dynamic viewport height for mobile - accounts for browser chrome */
+            width: 100vw; overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            perspective: 1200px;
+            touch-action: none; /* Prevent pull-to-refresh and pinch-zoom */
+            -webkit-touch-callout: none; /* Prevent iOS callout menu */
+            -webkit-user-select: none; /* Prevent text selection on long press */
+            user-select: none;
+            overscroll-behavior: none; /* Prevent iOS bounce scrolling */
+        }
+
+        /* --- INTRO & BACKGROUND --- */
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); display: flex; justify-content: center; align-items: center;
+            z-index: 100; cursor: pointer; transition: opacity 1.5s ease-in-out;
+        }
+        #overlay span {
+            position: relative; border: 1px solid var(--gold); padding: 20px 40px;
+            letter-spacing: 8px; text-transform: uppercase; font-size: 0.8rem; color: var(--gold);
+        }
+        #overlay span::after {
+            content: ''; position: absolute; top: -15px; left: -15px; right: -15px; bottom: -15px;
+            border: 1px solid var(--gold); border-radius: 5px; animation: pulse-ring 3s ease-out infinite;
+        }
+        @keyframes pulse-ring { 0% { transform: scale(0.9); opacity: 0; } 50% { opacity: 0.3; } 100% { transform: scale(1.2); opacity: 0; } }
+
+        .ambient-glow, .water-pattern { position: fixed; pointer-events: none; }
+        .ambient-glow { top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at var(--gx) var(--gy), rgba(197, 160, 89, 0.12) 0%, transparent 70%); z-index: 2; }
+        .water-pattern { top: -10%; left: -10%; width: 120%; height: 120%; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='30' viewBox='0 0 60 30'%3E%3Cpath d='M0 15 L15 0 L30 15 L45 0 L60 15' fill='none' stroke='%23C5A059' stroke-width='1' opacity='0.05'/%3E%3C/svg%3E"); transform: translate(calc(var(--mx) * -15px), calc(var(--my) * -15px)); z-index: 0; }
+
+        /* --- TYPOGRAPHY & LOTUS --- */
+        .header, .quote, .lotus-container { transition: opacity 2s ease, transform 0.2s ease-out; }
+        .header { position: absolute; top: 10%; z-index: 10; transform: translate(calc(var(--mx) * -10px), calc(var(--my) * -10px)); }
+        h1 { font-family: 'Playfair Display', serif; font-size: clamp(2rem, 10vw, 3.5rem); letter-spacing: 1.2rem; text-transform: uppercase; margin: 0; color: var(--gold); }
+        .quote { position: absolute; bottom: 8%; font-size: 0.7rem; letter-spacing: 0.3rem; text-transform: uppercase; width: 80%; line-height: 2; opacity: 0; }
+        .quote-active { animation: fadeIn 2s ease-out forwards 3s; }
+        .lotus-container { position: relative; width: 400px; height: 400px; display: flex; justify-content: center; align-items: center; transform-style: preserve-3d; animation: breeze 12s ease-in-out infinite alternate; z-index: 5; }
+        .petal { position: absolute; width: clamp(100px, 30vw, 140px); height: clamp(160px, 50vw, 220px); transform-origin: bottom center; bottom: 50%; opacity: 0; filter: drop-shadow(var(--shx) var(--shy) 12px rgba(0,0,0,0.8)); will-change: transform, opacity; }
+        .bloom-activated { animation: bloom 4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes bloom { from { transform: scale(0) rotate(var(--rot)) translateY(60px); opacity: 0; } to { transform: scale(1) rotate(var(--rot)) translateY(0); opacity: 0.85; } }
+        .stamen { position: absolute; width: 14px; height: 14px; background: var(--gold); border-radius: 50%; z-index: 20; opacity: 0; will-change: transform, box-shadow; }
+        .stamen-active { animation: fadeIn 2s forwards 2s, heartbeat 5s ease-in-out infinite 4s; }
+        @keyframes fadeIn { to { opacity: 1; } }
+
+        /* --- MINIGAME & HINTS --- */
+        #game-toggle {
+            position: fixed; 
+            top: max(20px, env(safe-area-inset-top)); 
+            right: max(20px, env(safe-area-inset-right)); 
+            z-index: 50;
+            width: clamp(44px, 10vw, 50px); height: clamp(44px, 10vw, 50px); 
+            cursor: pointer;
+            opacity: 0; pointer-events: none;
+            transition: opacity 1s ease-in-out 1s;
+            padding: 8px; /* Larger touch target */
+        }
+        #game-toggle.visible { opacity: 0.6; pointer-events: all; }
+        #game-toggle:hover { opacity: 1; }
+        #game-toggle svg { width: 100%; height: 100%; fill: var(--gold); filter: drop-shadow(0 0 5px var(--gold)); }
+
+        /* --- AUDIO CONTROL --- */
+        #audio-toggle {
+            position: fixed; 
+            top: max(20px, env(safe-area-inset-top)); 
+            left: max(20px, env(safe-area-inset-left)); 
+            z-index: 50;
+            width: clamp(44px, 10vw, 50px); height: clamp(44px, 10vw, 50px);
+            cursor: pointer;
+            opacity: 0; pointer-events: none;
+            transition: opacity 1s ease-in-out 1s;
+            padding: 8px; /* Larger touch target */
+        }
+        #audio-toggle.visible { opacity: 0.6; pointer-events: all; }
+        #audio-toggle:hover { opacity: 1; }
+        #audio-toggle svg { width: 100%; height: 100%; fill: var(--gold); filter: drop-shadow(0 0 5px var(--gold)); }
+        #audio-toggle.muted svg { opacity: 0.3; }
+
+        /* --- PROGRESS INDICATOR --- */
+        #progress-indicator {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-family: 'Inter', sans-serif; font-size: 0.75rem; letter-spacing: 0.2em;
+            color: var(--gold); opacity: 0; pointer-events: none;
+            text-transform: uppercase; z-index: 25;
+            transition: opacity 0.5s ease;
+        }
+        #progress-indicator.visible { opacity: 0.4; }
+        #progress-indicator .current { font-size: 2rem; font-weight: 200; display: block; text-align: center; }
+        #progress-indicator .total { font-size: 0.7rem; opacity: 0.6; display: block; text-align: center; margin-top: 5px; }
+
+        #star-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 20; pointer-events: none; opacity: 0; transition: opacity 2s ease-in-out; }
+        .star { fill: var(--gold); pointer-events: all; cursor: pointer; transition: all 0.3s ease; opacity: 0.9; }
+        .star:hover { r: 9; opacity: 1; }
+        .star.connected { filter: drop-shadow(0 0 6px var(--gold)); opacity: 1; }
+        .star.completed { opacity: 0.25; pointer-events: none; filter: none; }
+        .star.hint-ping { animation: ping-star 1.5s ease-out; }
+        .star-background { fill: var(--gold); opacity: 0.3; pointer-events: none; }
+        .constellation-line.completed { stroke-opacity: 0.3; transition: stroke-opacity 1s ease; }
+        .constellation-name.completed { opacity: 0.4; transition: opacity 1s ease; }
+        @keyframes ping-star { 0% { r: 7; } 50% { r: 12; filter: drop-shadow(0 0 15px var(--gold)); } 100% { r: 7; } }
+        .constellation-line { stroke: var(--gold); stroke-width: 1.5; stroke-opacity: 0.7; }
+        .constellation-line.invalid { animation: invalid-connection 0.8s ease-out forwards; }
+        @keyframes invalid-connection {
+            0% { stroke-opacity: 0.7; }
+            30% { stroke-opacity: 0.4; stroke-width: 1; }
+            60% { stroke-opacity: 0.2; }
+            100% { stroke-opacity: 0; }
+        }
+        .constellation-line.glow { animation: glow-pulse 2s ease-in-out; }
+        @keyframes glow-pulse { 
+            0%, 100% { stroke-opacity: 0.7; stroke-width: 1.5; filter: drop-shadow(0 0 0px var(--gold)); }
+            50% { stroke-opacity: 1; stroke-width: 2; filter: drop-shadow(0 0 15px var(--gold)); }
+        }
+        .connecting-line { stroke: var(--gold); stroke-width: 2; stroke-opacity: 0; stroke-dasharray: 5, 5; }
+        .connecting-line.reveal { animation: line-reveal 2s ease-out forwards; }
+        @keyframes line-reveal {
+            0% { stroke-opacity: 0; stroke-dashoffset: 100; }
+            100% { stroke-opacity: 0.5; stroke-dashoffset: 0; filter: drop-shadow(0 0 8px var(--gold)); }
+        }
+        .sacred-symbol { opacity: 0; fill: none; stroke: var(--gold); stroke-width: 2; }
+        .sacred-symbol.reveal { animation: symbol-emerge 3s ease-out forwards; }
+        @keyframes symbol-emerge {
+            0% { opacity: 0; transform: scale(0) rotate(-45deg); }
+            60% { opacity: 1; transform: scale(1.1) rotate(5deg); }
+            100% { opacity: 1; transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 20px var(--gold)); }
+        }
+        .final-message { 
+            font-family: 'Playfair Display', serif; 
+            fill: var(--gold); 
+            font-size: clamp(1rem, 4vw, 1.4rem);
+            text-anchor: middle; 
+            opacity: 0;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+        }
+        .final-message.reveal { animation: message-appear 3s ease-out forwards; }
+        @keyframes message-appear {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 0.9; transform: translateY(0); filter: drop-shadow(0 0 10px var(--gold)); }
+        }
+        .constellation-name { font-family: 'Playfair Display', serif; fill: var(--gold); font-size: clamp(0.8rem, 3vw, 1rem); text-anchor: middle; opacity: 0; animation: fadeIn 2s forwards 1s; }
+        
+        body.game-active .lotus-container, body.game-active .header, body.game-active .quote { opacity: 0; pointer-events: none; }
+        body.game-active #star-canvas { opacity: 1; pointer-events: all; }
+
+        /* --- MOBILE OPTIMIZATIONS --- */
+        @media (max-width: 768px) {
+            h1 { letter-spacing: 0.5rem; } /* Reduce spacing on small screens */
+            .quote { font-size: 0.6rem; letter-spacing: 0.2rem; }
+            #progress-indicator { font-size: 0.65rem; }
+            #progress-indicator .current { font-size: 1.5rem; }
+            .final-message { font-size: clamp(0.8rem, 3.5vw, 1rem); }
+        }
+
+        @media (max-height: 600px) {
+            /* Very short screens (landscape phones) */
+            .final-message { font-size: 0.7rem; }
+            #progress-indicator .current { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay" onclick="awaken()"><span>Awaken</span></div>
+    
+    <div id="game-toggle" onclick="toggleGame()">
+        <svg viewBox="0 0 24 24"><path d="M12 2.05c-5.5 5.5-5.5 14.35 0 19.85 5.5-5.5 5.5-14.35 0-19.85zm0 17.67c-4.41-4.41-4.41-11.59 0-16s11.59-4.41 16 0c4.41 4.41 4.41 11.59 0 16s-11.59 4.41-16 0z" transform="scale(0.8)"/></svg>
+    </div>
+
+    <div id="audio-toggle" onclick="toggleAudio()">
+        <svg viewBox="0 0 24 24">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+        </svg>
+    </div>
+
+    <div class="ambient-glow"></div><div class="water-pattern"></div>
+    <div class="header"><h1>Nefertem</h1></div>
+    <div class="lotus-container" id="lotus"><div class="stamen" id="stamen"></div></div>
+    <div class="quote" id="quote">Unfolding from the dark waters<br>To meet the morning light</div>
+    <div id="progress-indicator">
+        <span class="current">1</span>
+        <span class="total">of 7 constellations</span>
+    </div>
+    <svg id="star-canvas"></svg>
+
+    <script>
+        const root = document.documentElement, lotus = document.getElementById('lotus'), starCanvas = document.getElementById('star-canvas'), toggleButton = document.getElementById('game-toggle'), audioToggleButton = document.getElementById('audio-toggle'), progressIndicator = document.getElementById('progress-indicator');
+        const TARGET_RADIUS = 100;
+        let isGameInitialized = false, hintTimer, audioContext, isMuted = false;
+        let ambientGain, ambientOscillators = [];
+
+        // ========== AUDIO SYSTEM ==========
+        
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+
+        function createAmbientSoundscape() {
+            if (!audioContext || isMuted) return;
+            
+            // Create a subtle, layered ambient drone
+            ambientGain = audioContext.createGain();
+            ambientGain.gain.setValueAtTime(0, audioContext.currentTime);
+            ambientGain.gain.linearRampToValueAtTime(0.08, audioContext.currentTime + 3); // Fade in over 3 seconds
+            ambientGain.connect(audioContext.destination);
+
+            // Low drone (like distant water/earth)
+            const lowDrone = audioContext.createOscillator();
+            lowDrone.type = 'sine';
+            lowDrone.frequency.setValueAtTime(55, audioContext.currentTime); // Low A
+            lowDrone.connect(ambientGain);
+            lowDrone.start();
+            ambientOscillators.push(lowDrone);
+
+            // Mid drone with slight detuning (creates texture)
+            const midDrone = audioContext.createOscillator();
+            midDrone.type = 'triangle';
+            midDrone.frequency.setValueAtTime(110.5, audioContext.currentTime); // Slightly detuned A
+            const midGain = audioContext.createGain();
+            midGain.gain.setValueAtTime(0.4, audioContext.currentTime);
+            midDrone.connect(midGain);
+            midGain.connect(ambientGain);
+            midDrone.start();
+            ambientOscillators.push(midDrone);
+
+            // Very subtle high harmonic (like wind)
+            const highDrone = audioContext.createOscillator();
+            highDrone.type = 'sine';
+            highDrone.frequency.setValueAtTime(880, audioContext.currentTime); // High A
+            const highGain = audioContext.createGain();
+            highGain.gain.setValueAtTime(0.02, audioContext.currentTime);
+            highDrone.connect(highGain);
+            highGain.connect(ambientGain);
+            highDrone.start();
+            ambientOscillators.push(highDrone);
+
+            // Add slow LFO for subtle movement (like gentle waves)
+            const lfo = audioContext.createOscillator();
+            lfo.frequency.setValueAtTime(0.1, audioContext.currentTime); // Very slow
+            const lfoGain = audioContext.createGain();
+            lfoGain.gain.setValueAtTime(3, audioContext.currentTime);
+            lfo.connect(lfoGain);
+            lfoGain.connect(midDrone.frequency);
+            lfo.start();
+            ambientOscillators.push(lfo);
+        }
+
+        function stopAmbientSoundscape() {
+            if (ambientGain) {
+                ambientGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1);
+            }
+            setTimeout(() => {
+                ambientOscillators.forEach(osc => {
+                    try { osc.stop(); } catch(e) {}
+                });
+                ambientOscillators = [];
+            }, 1100);
+        }
+
+        function playSingingBowl() {
+            if (!audioContext || isMuted) return;
+            
+            // Deep, resonant tone like a Tibetan singing bowl
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(174, audioContext.currentTime); // Low F
+            
+            gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 5);
+            
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            
+            osc.start();
+            osc.stop(audioContext.currentTime + 5);
+        }
+
+        function playStarChime(starIndex, totalStars) {
+            if (!audioContext || isMuted) return;
+            
+            // Create a musical scale - each star is a different note
+            // Using a pentatonic scale for a pleasant, mystical sound
+            const pentatonicScale = [523.25, 587.33, 659.25, 783.99, 880]; // C5, D5, E5, G5, A5
+            const frequency = pentatonicScale[starIndex % pentatonicScale.length];
+            
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            
+            // Bell-like envelope with longer fade
+            gain.gain.setValueAtTime(0.2, audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1.5);
+            
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            
+            osc.start();
+            osc.stop(audioContext.currentTime + 1.5);
+        }
+
+        function playConstellationComplete() {
+            if (!audioContext || isMuted) return;
+            
+            // A harmonious chord: C-E-G (major triad) but lower and richer
+            const notes = [261.63, 329.63, 392.00]; // C4, E4, G4
+            
+            notes.forEach((freq, i) => {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+                
+                gain.gain.setValueAtTime(0.15, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 3.5);
+                
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                
+                osc.start(audioContext.currentTime + i * 0.05); // Slight arpeggio
+                osc.stop(audioContext.currentTime + 3.5);
+            });
+        }
+
+        function playGameToggle() {
+            if (!audioContext || isMuted) return;
+            
+            // Soft whoosh sound using filtered noise
+            const bufferSize = audioContext.sampleRate * 1;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+            
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(800, audioContext.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 1);
+            
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0.15, audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
+            
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioContext.destination);
+            
+            noise.start();
+            noise.stop(audioContext.currentTime + 1);
+        }
+
+        function playFinalRevelation() {
+            if (!audioContext || isMuted) return;
+            
+            // Deep, resonant power chord - the ultimate revelation
+            const fundamentals = [130.81, 164.81, 196.00]; // C3, E3, G3 - lower and more powerful
+            
+            fundamentals.forEach((freq, i) => {
+                // Fundamental
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+                
+                gain.gain.setValueAtTime(0.2, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 5);
+                
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                
+                osc.start(audioContext.currentTime + i * 0.1);
+                osc.stop(audioContext.currentTime + 5);
+                
+                // Add harmonics for richness
+                const harmonic = audioContext.createOscillator();
+                const harmonicGain = audioContext.createGain();
+                
+                harmonic.type = 'triangle';
+                harmonic.frequency.setValueAtTime(freq * 2, audioContext.currentTime);
+                
+                harmonicGain.gain.setValueAtTime(0.1, audioContext.currentTime);
+                harmonicGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 5);
+                
+                harmonic.connect(harmonicGain);
+                harmonicGain.connect(audioContext.destination);
+                
+                harmonic.start(audioContext.currentTime + i * 0.1);
+                harmonic.stop(audioContext.currentTime + 5);
+            });
+        }
+
+        function triggerHaptic(pattern = [50]) {
+            if (navigator.vibrate) {
+                navigator.vibrate(pattern);
+            }
+        }
+
+        function updateProgressIndicator() {
+            const currentNum = currentConstellation + 1;
+            const totalNum = constellations.length;
+            progressIndicator.querySelector('.current').textContent = currentNum;
+            progressIndicator.querySelector('.total').textContent = `of ${totalNum} constellations`;
+        }
+
+        function triggerFinalRevelation() {
+            // Step 1: Remove completed dimming and make all constellation lines glow in sequence
+            const allLines = document.querySelectorAll('.constellation-line');
+            allLines.forEach((line, i) => {
+                setTimeout(() => {
+                    line.classList.remove('completed');
+                    line.classList.add('glow');
+                }, i * 150);
+            });
+            
+            // Also brighten all stars and names for the finale
+            document.querySelectorAll('.star').forEach(s => s.classList.remove('completed'));
+            document.querySelectorAll('.constellation-name').forEach(n => n.classList.remove('completed'));
+
+            // Step 2: Calculate center points of all completed constellations (updated positions)
+            const centers = [
+                [40, 18],  // Barque of Ra (top-left)
+                [75, 40],  // Scales of Ma'at (right-upper)
+                [25, 84],  // Pillar of Osiris (bottom-left)
+                [50, 57],  // Sacred Ankh (center)
+                [85, 64],  // Scarab of Khepri (right-lower)
+                [13, 53],  // Feather of Truth (left-middle)
+                [75, 92]   // Sistrum of Hathor (bottom-right)
+            ];
+
+            // Draw connecting lines in a sacred geometry pattern
+            setTimeout(() => {
+                // Create a heptagram (7-pointed star) connecting all constellation centers
+                for (let i = 0; i < centers.length; i++) {
+                    const start = centers[i];
+                    const end = centers[(i + 3) % centers.length]; // Connect to every 3rd point for star pattern
+                    
+                    setTimeout(() => {
+                        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                        line.setAttribute('x1', `${start[0]}%`);
+                        line.setAttribute('y1', `${start[1]}%`);
+                        line.setAttribute('x2', `${end[0]}%`);
+                        line.setAttribute('y2', `${end[1]}%`);
+                        line.classList.add('connecting-line', 'reveal');
+                        starCanvas.appendChild(line);
+                    }, i * 300);
+                }
+            }, 1000);
+
+            // Step 3: Create Eye of Horus symbol at the geometric center
+            setTimeout(() => {
+                const eyeGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                eyeGroup.classList.add('sacred-symbol', 'reveal');
+                eyeGroup.setAttribute('transform', 'translate(50, 55)'); // Updated geometric center
+
+                // Eye of Horus outline (simplified sacred geometry)
+                const eyePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                eyePath.setAttribute('d', 'M-15,-5 Q-10,-10 0,-10 Q10,-10 15,-5 Q10,0 0,5 Q-10,0 -15,-5 M0,-8 L0,5 M-8,0 Q-5,3 0,3 Q5,3 8,0');
+                eyePath.setAttribute('stroke', 'var(--gold)');
+                eyePath.setAttribute('stroke-width', '1.5');
+                eyePath.setAttribute('fill', 'none');
+
+                // Add a central circle (pupil)
+                const pupil = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                pupil.setAttribute('cx', '0');
+                pupil.setAttribute('cy', '-3');
+                pupil.setAttribute('r', '2');
+                pupil.setAttribute('fill', 'var(--gold)');
+
+                eyeGroup.appendChild(eyePath);
+                eyeGroup.appendChild(pupil);
+                starCanvas.appendChild(eyeGroup);
+
+                // Play final sound and haptic
+                playFinalRevelation();
+                triggerHaptic([150, 100, 150, 100, 200]);
+            }, 3500);
+
+            // Step 4: Show congratulatory message
+            setTimeout(() => {
+                const message1 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                message1.setAttribute('x', '50%');
+                message1.setAttribute('y', '88%');
+                message1.textContent = 'The Duat is Complete';
+                message1.classList.add('final-message', 'reveal');
+                starCanvas.appendChild(message1);
+                
+                const message2 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                message2.setAttribute('x', '50%');
+                message2.setAttribute('y', '94%');
+                message2.textContent = 'You Have Traced the Path of Nefertem';
+                message2.classList.add('final-message', 'reveal');
+                message2.style.fontSize = 'clamp(0.7rem, 2.5vw, 0.9rem)';
+                message2.style.letterSpacing = '0.15em';
+                message2.style.animationDelay = '0.5s';
+                starCanvas.appendChild(message2);
+            }, 5000);
+
+            // Step 5: Fade the game toggle to indicate completion
+            setTimeout(() => {
+                toggleButton.style.opacity = '0.3';
+            }, 6500);
+        }
+
+        function toggleAudio() {
+            isMuted = !isMuted;
+            audioToggleButton.classList.toggle('muted', isMuted);
+        }
+
+        // ========== ORIGINAL FUNCTIONALITY ==========
+
+        function awaken() {
+            initAudio();
+            playSingingBowl();
+            
+            document.getElementById('overlay').style.opacity = '0';
+            setTimeout(() => document.getElementById('overlay').remove(), 1500);
+            document.querySelectorAll('.petal').forEach(p => p.classList.add('bloom-activated'));
+            document.getElementById('stamen').classList.add('stamen-active');
+            document.getElementById('quote').classList.add('quote-active');
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') { DeviceOrientationEvent.requestPermission().then(res => { if (res == 'granted') window.addEventListener('deviceorientation', handleTilt); }); } else { window.addEventListener('deviceorientation', handleTilt); }
+            setTimeout(() => {
+                toggleButton.classList.add('visible');
+                audioToggleButton.classList.add('visible');
+            }, 5000);
+        }
+
+        // Mouse & Tilt Logic
+        function updateVisuals(px, py) { const nx = px * 2 - 1, ny = py * 2 - 1; root.style.setProperty('--mx', nx); root.style.setProperty('--my', ny); root.style.setProperty('--gx', (px * 100) + '%'); root.style.setProperty('--gy', (py * 100) + '%'); root.style.setProperty('--shx', (nx * -18) + 'px'); root.style.setProperty('--shy', (ny * -18) + 'px'); }
+        window.addEventListener('mousemove', e => updateVisuals(e.clientX / window.innerWidth, e.clientY / window.innerHeight));
+        function handleTilt(e) { const nx = (e.gamma + 30) / 60, ny = (e.beta - 20) / 60; updateVisuals(Math.max(0, Math.min(1, nx)), Math.max(0, Math.min(1, ny))); }
+        
+        // Petal Generation
+        [{ c: 8, d: 0, C: '#2A3362' }, { c: 8, d: 0.6, C: '#4D59AE' }, { c: 5, d: 1.2, C: '#7A88E2' }].forEach((r, i) => { for (let j = 0; j < r.c; j++) { const rot = (360 / r.c) * j + (i === 1 ? 22.5 : 0), s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("viewBox", "0 0 100 200"); s.classList.add('petal'); s.style.setProperty('--rot', `${rot}deg`); s.style.animationDelay = `${r.d}s`; s.style.fill = r.C; s.innerHTML = `<path d="M50 200 C75 140 95 80 50 0 C5 80 25 140 50 200" />`; lotus.appendChild(s); } });
+
+        // --- MINIGAME LOGIC WITH FREEFORM CONNECTIONS ---
+        const constellations = [ 
+            { 
+                name: "Barque of Ra", 
+                stars: [[15, 20], [28, 16], [40, 20], [52, 16], [65, 20]],
+                connections: [[0,1], [1,2], [2,3], [3,4]] // Sequential boat
+            }, 
+            { 
+                name: "Scales of Ma'at", 
+                stars: [[75, 35], [68, 44], [61, 40], [82, 44], [89, 40]],
+                connections: [[0,1], [1,2], [0,3], [3,4]] // Balanced scales
+            }, 
+            { 
+                name: "Pillar of Osiris", 
+                stars: [[25, 75], [25, 83], [20, 90], [30, 90]],
+                connections: [[0,1], [1,2], [1,3]] // Vertical pillar
+            },
+            {
+                name: "The Sacred Ankh",
+                stars: [[50, 45], [43, 53], [57, 53], [50, 53], [50, 61], [50, 69]],
+                connections: [[0,1], [0,2], [0,3], [3,4], [4,5]] // Cross with loop
+            },
+            {
+                name: "Scarab of Khepri",
+                stars: [[70, 65], [77, 61], [85, 60], [92, 62], [97, 67], [85, 70]],
+                connections: [[0,1], [1,2], [2,3], [3,4], [2,5], [1,5], [3,5]] // Beetle shape
+            },
+            {
+                name: "Feather of Truth",
+                stars: [[15, 45], [19, 50], [18, 56], [14, 62], [10, 56], [11, 50]],
+                connections: [[0,1], [1,2], [2,3], [3,4], [4,5], [5,0]] // Feather outline
+            },
+            {
+                name: "Sistrum of Hathor",
+                stars: [[75, 85], [75, 92], [80, 95], [70, 95], [75, 98]],
+                connections: [[0,1], [1,2], [1,3], [2,4], [3,4]] // Musical instrument
+            }
+        ];
+        let currentConstellation = 0, completedConnections = new Set(), isDrawing = false, currentLine, startingStar;
+
+        function toggleGame() {
+            if (!isGameInitialized) {
+                initializeStargazing();
+                isGameInitialized = true;
+            }
+            document.body.classList.toggle('game-active');
+            
+            // Show/hide progress indicator
+            if (document.body.classList.contains('game-active')) {
+                progressIndicator.classList.add('visible');
+                updateProgressIndicator();
+            } else {
+                progressIndicator.classList.remove('visible');
+            }
+            
+            playGameToggle();
+        }
+
+        function initializeStargazing() {
+            for (let i = 0; i < 100; i++) {
+                const bgStar = createStar(Math.random() * 100, Math.random() * 100, Math.random() * 1.5, 'star-background');
+                starCanvas.appendChild(bgStar);
+            }
+            loadConstellation(0);
+        }
+        
+        function setHintTimer() {
+            clearTimeout(hintTimer);
+            hintTimer = setTimeout(() => {
+                // Hint: pulse a star that's part of an incomplete connection
+                const constData = constellations[currentConstellation];
+                const incompleteConnection = constData.connections.find(conn => {
+                    const key = [conn[0], conn[1]].sort().join('-');
+                    return !completedConnections.has(key);
+                });
+                
+                if (incompleteConnection && document.body.classList.contains('game-active')) {
+                    const starToPulse = document.querySelector(`.star[data-index='${incompleteConnection[0]}']`);
+                    if (starToPulse) {
+                        starToPulse.classList.add('hint-ping');
+                        setTimeout(() => starToPulse.classList.remove('hint-ping'), 1500);
+                    }
+                }
+            }, 8000); // Longer timeout since it's more exploratory
+        }
+
+        function loadConstellation(index) {
+            if (index >= constellations.length) return;
+            completedConnections.clear();
+            const constData = constellations[index];
+            constData.stars.forEach((pos, i) => {
+                const star = createStar(pos[0], pos[1], 7, 'star');
+                star.dataset.index = i;
+                star.dataset.constellation = index;
+                starCanvas.appendChild(star);
+                star.addEventListener('mousedown', startLine); 
+                star.addEventListener('touchstart', startLine, { passive: false });
+            });
+            setHintTimer();
+        }
+
+        function createStar(x, y, r, className) { 
+            const star = document.createElementNS("http://www.w3.org/2000/svg", "circle"); 
+            star.setAttribute('cx', `${x}%`); 
+            star.setAttribute('cy', `${y}%`); 
+            star.setAttribute('r', r); 
+            star.classList.add(className); 
+            return star; 
+        }
+
+        function startLine(e) {
+            // Can start from ANY constellation star
+            if (!e.target.classList.contains('star')) return;
+            if (e.target.dataset.constellation !== String(currentConstellation)) return;
+            
+            clearTimeout(hintTimer);
+            startingStar = e.target;
+            isDrawing = true; 
+            e.preventDefault(); 
+            const x = e.target.getAttribute('cx'), y = e.target.getAttribute('cy');
+            currentLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            currentLine.setAttribute('x1', x); 
+            currentLine.setAttribute('y1', y); 
+            currentLine.setAttribute('x2', x); 
+            currentLine.setAttribute('y2', y);
+            currentLine.classList.add('constellation-line'); 
+            starCanvas.appendChild(currentLine);
+            window.addEventListener('mousemove', drawLine); 
+            window.addEventListener('touchmove', drawLine, { passive: false });
+            window.addEventListener('mouseup', endLine); 
+            window.addEventListener('touchend', endLine, { passive: false });
+        }
+
+        function drawLine(e) { 
+            if (!isDrawing) return; 
+            e.preventDefault(); // Prevent scrolling while drawing
+            const CTM = starCanvas.getScreenCTM(); 
+            const coords = (e.touches) ? e.touches[0] : e; 
+            const x = (coords.clientX - CTM.e) / CTM.a; 
+            const y = (coords.clientY - CTM.f) / CTM.d; 
+            currentLine.setAttribute('x2', `${(x / window.innerWidth) * 100}%`); 
+            currentLine.setAttribute('y2', `${(y / window.innerHeight) * 100}%`); 
+        }
+
+        function endLine(e) {
+            if (!isDrawing) return;
+            isDrawing = false;
+            e.preventDefault(); // Prevent any default touch behavior
+            window.removeEventListener('mousemove', drawLine); 
+            window.removeEventListener('touchmove', drawLine, { passive: false }); 
+            window.removeEventListener('mouseup', endLine); 
+            window.removeEventListener('touchend', endLine, { passive: false });
+            
+            // Find which star (if any) we released on
+            const releaseCoords = (e.changedTouches) ? e.changedTouches[0] : e;
+            let closestStar = null;
+            let closestDistance = TARGET_RADIUS;
+            
+            document.querySelectorAll('.star').forEach(star => {
+                if (star.dataset.constellation !== String(currentConstellation)) return;
+                if (star === startingStar) return; // Can't connect to self
+                
+                const starX = parseFloat(star.getAttribute('cx')) / 100 * window.innerWidth;
+                const starY = parseFloat(star.getAttribute('cy')) / 100 * window.innerHeight;
+                const distance = Math.sqrt(
+                    Math.pow(releaseCoords.clientX - starX, 2) + 
+                    Math.pow(releaseCoords.clientY - starY, 2)
+                );
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestStar = star;
+                }
+            });
+
+            if (closestStar) {
+                // Snap line to the target star first
+                currentLine.setAttribute('x2', closestStar.getAttribute('cx'));
+                currentLine.setAttribute('y2', closestStar.getAttribute('cy'));
+                
+                // Check if this is a valid connection
+                const startIndex = parseInt(startingStar.dataset.index);
+                const endIndex = parseInt(closestStar.dataset.index);
+                const constData = constellations[currentConstellation];
+                
+                const isValidConnection = constData.connections.some(conn => 
+                    (conn[0] === startIndex && conn[1] === endIndex) ||
+                    (conn[0] === endIndex && conn[1] === startIndex)
+                );
+                
+                const connectionKey = [startIndex, endIndex].sort().join('-');
+                const alreadyCompleted = completedConnections.has(connectionKey);
+                
+                if (isValidConnection && !alreadyCompleted) {
+                    // SUCCESS!
+                    playStarChime(completedConnections.size, constData.connections.length);
+                    
+                    completedConnections.add(connectionKey);
+                    
+                    // Tag the line with the current constellation
+                    currentLine.dataset.constellation = currentConstellation;
+                    
+                    startingStar.classList.add('connected');
+                    closestStar.classList.add('connected');
+                    
+                    // Check if constellation is complete
+                    if (completedConnections.size >= constData.connections.length) {
+                        completeConstellation();
+                    } else {
+                        setHintTimer();
+                    }
+                } else {
+                    // Invalid connection - snap to target, then animate out
+                    currentLine.classList.add('invalid');
+                    setTimeout(() => {
+                        currentLine.remove();
+                    }, 800); // Match animation duration
+                    setHintTimer();
+                }
+            } else {
+                // Didn't release on any star - just remove
+                currentLine.remove();
+                setHintTimer();
+            }
+        }
+
+        function completeConstellation() {
+            clearTimeout(hintTimer);
+            
+            // Play completion chord and trigger haptic feedback
+            playConstellationComplete();
+            triggerHaptic([100, 50, 100]); // Subtle double-pulse
+            
+            const constData = constellations[currentConstellation];
+            const nameLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            
+            // Position labels strategically to avoid overlaps
+            const labelPositions = [
+                [40, 28],  // Barque of Ra - below
+                [75, 50],  // Scales of Ma'at - below
+                [25, 70],  // Pillar of Osiris - above
+                [50, 78],  // Sacred Ankh - below
+                [85, 76],  // Scarab of Khepri - below
+                [13, 42],  // Feather of Truth - above
+                [75, 82]   // Sistrum of Hathor - above
+            ];
+            
+            nameLabel.setAttribute('x', `${labelPositions[currentConstellation][0]}%`);
+            nameLabel.setAttribute('y', `${labelPositions[currentConstellation][1]}%`);
+            nameLabel.textContent = constData.name; 
+            nameLabel.classList.add('constellation-name');
+            nameLabel.dataset.constellation = currentConstellation;
+            starCanvas.appendChild(nameLabel);
+            
+            currentConstellation++;
+            
+            setTimeout(() => {
+                if(currentConstellation < constellations.length) {
+                    // Dim the completed constellation
+                    document.querySelectorAll('.star').forEach(s => {
+                        if (s.dataset.constellation && s.dataset.constellation !== String(currentConstellation)) {
+                            s.classList.add('completed');
+                            s.classList.remove('connected');
+                        }
+                    });
+                    document.querySelectorAll('.constellation-line').forEach(line => {
+                        if (line.dataset.constellation && line.dataset.constellation !== String(currentConstellation)) {
+                            line.classList.add('completed');
+                        }
+                    });
+                    document.querySelectorAll('.constellation-name').forEach(name => {
+                        if (name.dataset.constellation && name.dataset.constellation !== String(currentConstellation)) {
+                            name.classList.add('completed');
+                        }
+                    });
+                    
+                    updateProgressIndicator();
+                    loadConstellation(currentConstellation);
+                } else {
+                    // All constellations complete - trigger final revelation!
+                    progressIndicator.classList.remove('visible');
+                    triggerFinalRevelation();
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
