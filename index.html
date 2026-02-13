@@ -58,12 +58,12 @@
         h1 { font-family: 'Playfair Display', serif; font-size: clamp(2rem, 10vw, 3.5rem); letter-spacing: 1.2rem; text-transform: uppercase; margin: 0; color: var(--gold); }
         .quote { position: absolute; bottom: 8%; font-size: 0.7rem; letter-spacing: 0.3rem; text-transform: uppercase; width: 80%; line-height: 2; opacity: 0; }
         .quote-active { animation: fadeIn 2s ease-out forwards 3s; }
-        .lotus-container { position: relative; width: 400px; height: 400px; display: flex; justify-content: center; align-items: center; transform-style: preserve-3d; animation: breeze 12s ease-in-out infinite alternate; z-index: 5; }
-        .petal { position: absolute; width: clamp(100px, 30vw, 140px); height: clamp(160px, 50vw, 220px); transform-origin: bottom center; bottom: 50%; opacity: 0; filter: drop-shadow(var(--shx) var(--shy) 12px rgba(0,0,0,0.8)); will-change: transform, opacity; }
+        .lotus-container { position: relative; width: 400px; height: 400px; display: flex; justify-content: center; align-items: center; transform-style: preserve-3d; z-index: 5; will-change: transform; }
+        .petal { position: absolute; width: clamp(100px, 30vw, 140px); height: clamp(160px, 50vw, 220px); transform-origin: bottom center; bottom: 50%; opacity: 0; filter: drop-shadow(var(--shx) var(--shy) 12px rgba(0,0,0,0.8)); will-change: transform, opacity; backface-visibility: hidden; }
         .bloom-activated { animation: bloom 4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes bloom { from { transform: scale(0) rotate(var(--rot)) translateY(60px); opacity: 0; } to { transform: scale(1) rotate(var(--rot)) translateY(0); opacity: 0.85; } }
+        @keyframes bloom { from { transform: scale(0) rotate(var(--rot)) translateY(60px) translateZ(0); opacity: 0; } to { transform: scale(1) rotate(var(--rot)) translateY(0) translateZ(0); opacity: 0.85; } }
         .stamen { position: absolute; width: 14px; height: 14px; background: var(--gold); border-radius: 50%; z-index: 20; opacity: 0; will-change: transform, box-shadow; }
-        .stamen-active { animation: fadeIn 2s forwards 2s, heartbeat 5s ease-in-out infinite 4s; }
+        .stamen-active { animation: fadeIn 2s forwards 2s; }
         @keyframes fadeIn { to { opacity: 1; } }
 
         /* --- MINIGAME & HINTS --- */
@@ -173,6 +173,16 @@
             #progress-indicator { font-size: 0.65rem; }
             #progress-indicator .current { font-size: 1.5rem; }
             .final-message { font-size: clamp(0.8rem, 3.5vw, 1rem); }
+            
+            /* Disable parallax effects on mobile for performance */
+            .header { transform: none !important; }
+            .water-pattern { transform: none !important; opacity: 0.5; } /* Reduce opacity for less GPU load */
+            .ambient-glow { background: radial-gradient(circle at 50% 50%, rgba(197, 160, 89, 0.12) 0%, transparent 70%); }
+            .petal { filter: drop-shadow(0px -12px 8px rgba(0,0,0,0.6)) !important; } /* Lighter shadow */
+            
+            /* Simplify visual effects */
+            #game-toggle svg, #audio-toggle svg { filter: none; } /* Remove glow effects */
+            .star.connected { filter: none; } /* Remove connected star glow */
         }
 
         @media (max-height: 600px) {
@@ -211,6 +221,9 @@
         const TARGET_RADIUS = 100;
         let isGameInitialized = false, hintTimer, audioContext, isMuted = false;
         let ambientGain, ambientOscillators = [];
+        
+        // Detect mobile devices
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
 
         // ========== AUDIO SYSTEM ==========
         
@@ -555,7 +568,18 @@
             document.querySelectorAll('.petal').forEach(p => p.classList.add('bloom-activated'));
             document.getElementById('stamen').classList.add('stamen-active');
             document.getElementById('quote').classList.add('quote-active');
-            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') { DeviceOrientationEvent.requestPermission().then(res => { if (res == 'granted') window.addEventListener('deviceorientation', handleTilt); }); } else { window.addEventListener('deviceorientation', handleTilt); }
+            
+            // Only enable device tilt on desktop
+            if (!isMobile) {
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') { 
+                    DeviceOrientationEvent.requestPermission().then(res => { 
+                        if (res == 'granted') window.addEventListener('deviceorientation', handleTilt); 
+                    }); 
+                } else { 
+                    window.addEventListener('deviceorientation', handleTilt); 
+                }
+            }
+            
             setTimeout(() => {
                 toggleButton.classList.add('visible');
                 audioToggleButton.classList.add('visible');
@@ -563,9 +587,22 @@
         }
 
         // Mouse & Tilt Logic
-        function updateVisuals(px, py) { const nx = px * 2 - 1, ny = py * 2 - 1; root.style.setProperty('--mx', nx); root.style.setProperty('--my', ny); root.style.setProperty('--gx', (px * 100) + '%'); root.style.setProperty('--gy', (py * 100) + '%'); root.style.setProperty('--shx', (nx * -18) + 'px'); root.style.setProperty('--shy', (ny * -18) + 'px'); }
+        function updateVisuals(px, py) { 
+            if (isMobile) return; // Skip parallax on mobile for performance
+            const nx = px * 2 - 1, ny = py * 2 - 1; 
+            root.style.setProperty('--mx', nx); 
+            root.style.setProperty('--my', ny); 
+            root.style.setProperty('--gx', (px * 100) + '%'); 
+            root.style.setProperty('--gy', (py * 100) + '%'); 
+            root.style.setProperty('--shx', (nx * -18) + 'px'); 
+            root.style.setProperty('--shy', (ny * -18) + 'px'); 
+        }
         window.addEventListener('mousemove', e => updateVisuals(e.clientX / window.innerWidth, e.clientY / window.innerHeight));
-        function handleTilt(e) { const nx = (e.gamma + 30) / 60, ny = (e.beta - 20) / 60; updateVisuals(Math.max(0, Math.min(1, nx)), Math.max(0, Math.min(1, ny))); }
+        function handleTilt(e) { 
+            if (isMobile) return; // Disable tilt on mobile for performance
+            const nx = (e.gamma + 30) / 60, ny = (e.beta - 20) / 60; 
+            updateVisuals(Math.max(0, Math.min(1, nx)), Math.max(0, Math.min(1, ny))); 
+        }
         
         // Petal Generation
         [{ c: 8, d: 0, C: '#2A3362' }, { c: 8, d: 0.6, C: '#4D59AE' }, { c: 5, d: 1.2, C: '#7A88E2' }].forEach((r, i) => { for (let j = 0; j < r.c; j++) { const rot = (360 / r.c) * j + (i === 1 ? 22.5 : 0), s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("viewBox", "0 0 100 200"); s.classList.add('petal'); s.style.setProperty('--rot', `${rot}deg`); s.style.animationDelay = `${r.d}s`; s.style.fill = r.C; s.innerHTML = `<path d="M50 200 C75 140 95 80 50 0 C5 80 25 140 50 200" />`; lotus.appendChild(s); } });
