@@ -121,7 +121,8 @@
         .constellation-line.completed { stroke-opacity: 0.3; transition: stroke-opacity 1s ease; }
         .constellation-name.completed { opacity: 0.4; transition: opacity 1s ease; }
         @keyframes ping-star { 0% { r: 7; } 50% { r: 12; filter: drop-shadow(0 0 15px var(--gold)); } 100% { r: 7; } }
-        .constellation-line { stroke: var(--gold); stroke-width: 1.5; stroke-opacity: 0.7; }
+        .constellation-line { stroke: var(--gold); stroke-width: 1.5; stroke-opacity: 0.7; fill: none; pointer-events: none; }
+        .constellation-line.permanent { stroke-opacity: 0.7 !important; } /* Ensure permanent lines stay visible */
         .constellation-line.invalid { animation: invalid-connection 0.8s ease-out forwards; }
         @keyframes invalid-connection {
             0% { stroke-opacity: 0.7; }
@@ -150,16 +151,52 @@
         .final-message { 
             font-family: 'Playfair Display', serif; 
             fill: var(--gold); 
-            font-size: clamp(1rem, 4vw, 1.4rem);
+            font-size: clamp(1.4rem, 5vw, 2rem);
             text-anchor: middle; 
             opacity: 0;
-            letter-spacing: 0.2em;
+            letter-spacing: 0.3em;
             text-transform: uppercase;
+            font-weight: 700;
+            paint-order: stroke fill;
+            stroke: rgba(197, 160, 89, 0.3);
+            stroke-width: 1px;
         }
         .final-message.reveal { animation: message-appear 3s ease-out forwards; }
         @keyframes message-appear {
-            0% { opacity: 0; transform: translateY(20px); }
-            100% { opacity: 0.9; transform: translateY(0); filter: drop-shadow(0 0 10px var(--gold)); }
+            0% { opacity: 0; transform: translateY(40px) scale(0.8); }
+            50% { opacity: 1; transform: translateY(-10px) scale(1.1); }
+            100% { opacity: 1; transform: translateY(0) scale(1); filter: drop-shadow(0 0 20px var(--gold)) drop-shadow(0 0 40px var(--gold)); }
+        }
+        .final-message-subtitle {
+            font-family: 'Playfair Display', serif;
+            fill: var(--gold);
+            font-size: clamp(0.9rem, 3vw, 1.2rem);
+            text-anchor: middle;
+            opacity: 0;
+            letter-spacing: 0.2em;
+            font-style: italic;
+            font-weight: 400;
+        }
+        .final-message-subtitle.reveal { animation: subtitle-appear 3s ease-out forwards; }
+        @keyframes subtitle-appear {
+            0% { opacity: 0; transform: translateY(30px); }
+            60% { opacity: 0; }
+            100% { opacity: 0.8; transform: translateY(0); filter: drop-shadow(0 0 10px var(--gold)); }
+        }
+        
+        .final-glow-bg {
+            opacity: 0;
+            fill: radial-gradient(circle, rgba(197, 160, 89, 0.15) 0%, transparent 70%);
+        }
+        .final-glow-bg.reveal { animation: glow-bg-appear 3s ease-out forwards; }
+        @keyframes glow-bg-appear {
+            0% { opacity: 0; r: 0; }
+            100% { opacity: 1; r: 300; }
+        }
+        .star.shimmer { animation: star-shimmer 2s ease-in-out infinite; }
+        @keyframes star-shimmer {
+            0%, 100% { opacity: 0.9; r: 7; }
+            50% { opacity: 1; r: 8; filter: drop-shadow(0 0 12px var(--gold)); }
         }
         .constellation-name { font-family: 'Playfair Display', serif; fill: var(--gold); font-size: clamp(0.8rem, 3vw, 1rem); text-anchor: middle; opacity: 0; animation: fadeIn 2s forwards 1s; }
         
@@ -172,7 +209,8 @@
             .quote { font-size: 0.6rem; letter-spacing: 0.2rem; }
             #progress-indicator { font-size: 0.65rem; }
             #progress-indicator .current { font-size: 1.5rem; }
-            .final-message { font-size: clamp(0.8rem, 3.5vw, 1rem); }
+            .final-message { font-size: clamp(1.1rem, 4.5vw, 1.6rem); letter-spacing: 0.2em; }
+            .final-message-subtitle { font-size: clamp(0.75rem, 3vw, 1rem); }
             
             /* Disable parallax effects on mobile for performance */
             .header { transform: none !important; }
@@ -183,11 +221,13 @@
             /* Simplify visual effects */
             #game-toggle svg, #audio-toggle svg { filter: none; } /* Remove glow effects */
             .star.connected { filter: none; } /* Remove connected star glow */
+            .star.shimmer { animation: none; opacity: 1; } /* Disable shimmer animation on mobile */
         }
 
         @media (max-height: 600px) {
             /* Very short screens (landscape phones) */
-            .final-message { font-size: 0.7rem; }
+            .final-message { font-size: clamp(0.9rem, 4vw, 1.2rem); }
+            .final-message-subtitle { font-size: clamp(0.65rem, 2.5vw, 0.85rem); }
             #progress-indicator .current { font-size: 1.2rem; }
         }
     </style>
@@ -526,23 +566,57 @@
                 triggerHaptic([150, 100, 150, 100, 200]);
             }, 3500);
 
-            // Step 4: Show congratulatory message
+            // Step 4: Add shimmer to all stars and show congratulatory message
             setTimeout(() => {
+                // Make all stars shimmer
+                document.querySelectorAll('.star').forEach(s => {
+                    if (!s.classList.contains('star-background')) {
+                        s.classList.add('shimmer');
+                    }
+                });
+            }, 4000);
+            
+            setTimeout(() => {
+                // Add a glowing background circle
+                const glowBg = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                glowBg.setAttribute('cx', '50%');
+                glowBg.setAttribute('cy', '90%');
+                glowBg.setAttribute('r', '0');
+                glowBg.setAttribute('fill', 'url(#radialGlow)');
+                glowBg.classList.add('final-glow-bg', 'reveal');
+                
+                // Create gradient for glow
+                const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+                const gradient = document.createElementNS("http://www.w3.org/2000/svg", "radialGradient");
+                gradient.setAttribute('id', 'radialGlow');
+                const stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                stop1.setAttribute('offset', '0%');
+                stop1.setAttribute('stop-color', '#C5A059');
+                stop1.setAttribute('stop-opacity', '0.2');
+                const stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                stop2.setAttribute('offset', '100%');
+                stop2.setAttribute('stop-color', '#C5A059');
+                stop2.setAttribute('stop-opacity', '0');
+                gradient.appendChild(stop1);
+                gradient.appendChild(stop2);
+                defs.appendChild(gradient);
+                starCanvas.appendChild(defs);
+                starCanvas.appendChild(glowBg);
+                
+                // Main message
                 const message1 = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 message1.setAttribute('x', '50%');
-                message1.setAttribute('y', '88%');
+                message1.setAttribute('y', '85%');
                 message1.textContent = 'The Duat is Complete';
                 message1.classList.add('final-message', 'reveal');
                 starCanvas.appendChild(message1);
                 
+                // Subtitle message
                 const message2 = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 message2.setAttribute('x', '50%');
-                message2.setAttribute('y', '94%');
+                message2.setAttribute('y', '92%');
                 message2.textContent = 'You Have Traced the Path of Nefertem';
-                message2.classList.add('final-message', 'reveal');
-                message2.style.fontSize = 'clamp(0.7rem, 2.5vw, 0.9rem)';
-                message2.style.letterSpacing = '0.15em';
-                message2.style.animationDelay = '0.5s';
+                message2.classList.add('final-message-subtitle', 'reveal');
                 starCanvas.appendChild(message2);
             }, 5000);
 
@@ -727,13 +801,24 @@
             isDrawing = true; 
             e.preventDefault(); 
             const x = e.target.getAttribute('cx'), y = e.target.getAttribute('cy');
+            
             currentLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
             currentLine.setAttribute('x1', x); 
             currentLine.setAttribute('y1', y); 
             currentLine.setAttribute('x2', x); 
             currentLine.setAttribute('y2', y);
+            
+            // Explicitly set stroke attributes to ensure visibility
+            currentLine.setAttribute('stroke', '#C5A059');
+            currentLine.setAttribute('stroke-width', '1.5');
+            currentLine.setAttribute('stroke-opacity', '0.7');
+            
             currentLine.classList.add('constellation-line'); 
             starCanvas.appendChild(currentLine);
+            
+            // Force a reflow to ensure the line is rendered
+            currentLine.getBoundingClientRect();
+            
             window.addEventListener('mousemove', drawLine); 
             window.addEventListener('touchmove', drawLine, { passive: false });
             window.addEventListener('mouseup', endLine); 
@@ -741,14 +826,25 @@
         }
 
         function drawLine(e) { 
-            if (!isDrawing) return; 
+            if (!isDrawing) return;
+            if (!currentLine) return; // Safety check
+            
             e.preventDefault(); // Prevent scrolling while drawing
             const CTM = starCanvas.getScreenCTM(); 
+            if (!CTM) return; // Safety check
+            
             const coords = (e.touches) ? e.touches[0] : e; 
             const x = (coords.clientX - CTM.e) / CTM.a; 
             const y = (coords.clientY - CTM.f) / CTM.d; 
-            currentLine.setAttribute('x2', `${(x / window.innerWidth) * 100}%`); 
-            currentLine.setAttribute('y2', `${(y / window.innerHeight) * 100}%`); 
+            
+            // Validate coordinates
+            const xPercent = (x / window.innerWidth) * 100;
+            const yPercent = (y / window.innerHeight) * 100;
+            
+            if (!isNaN(xPercent) && !isNaN(yPercent)) {
+                currentLine.setAttribute('x2', `${xPercent}%`); 
+                currentLine.setAttribute('y2', `${yPercent}%`);
+            }
         }
 
         function endLine(e) {
@@ -759,6 +855,12 @@
             window.removeEventListener('touchmove', drawLine, { passive: false }); 
             window.removeEventListener('mouseup', endLine); 
             window.removeEventListener('touchend', endLine, { passive: false });
+            
+            // Safety check
+            if (!currentLine) {
+                console.warn('currentLine is null in endLine');
+                return;
+            }
             
             // Find which star (if any) we released on
             const releaseCoords = (e.changedTouches) ? e.changedTouches[0] : e;
@@ -783,9 +885,11 @@
             });
 
             if (closestStar) {
-                // Snap line to the target star first
-                currentLine.setAttribute('x2', closestStar.getAttribute('cx'));
-                currentLine.setAttribute('y2', closestStar.getAttribute('cy'));
+                // Snap line to the target star first (use percentage coordinates for consistency)
+                const targetCx = closestStar.getAttribute('cx');
+                const targetCy = closestStar.getAttribute('cy');
+                currentLine.setAttribute('x2', targetCx);
+                currentLine.setAttribute('y2', targetCy);
                 
                 // Check if this is a valid connection
                 const startIndex = parseInt(startingStar.dataset.index);
@@ -806,8 +910,29 @@
                     
                     completedConnections.add(connectionKey);
                     
-                    // Tag the line with the current constellation
+                    // Tag the line with the current constellation and ensure it stays visible
                     currentLine.dataset.constellation = currentConstellation;
+                    currentLine.classList.add('permanent'); // Mark as permanent to prevent any opacity changes
+                    
+                    // Ensure the line maintains its visibility
+                    if (!currentLine.hasAttribute('stroke')) {
+                        currentLine.setAttribute('stroke', '#C5A059');
+                        currentLine.setAttribute('stroke-width', '1.5');
+                        currentLine.setAttribute('stroke-opacity', '0.7');
+                    }
+                    
+                    // Verify the line is still in the DOM (defensive check)
+                    if (!currentLine.parentNode) {
+                        console.warn('Line lost from DOM, re-adding');
+                        starCanvas.appendChild(currentLine);
+                    }
+                    
+                    // Force a style recalculation to ensure visibility
+                    window.requestAnimationFrame(() => {
+                        if (currentLine) {
+                            currentLine.setAttribute('data-visible', 'true');
+                        }
+                    });
                     
                     startingStar.classList.add('connected');
                     closestStar.classList.add('connected');
