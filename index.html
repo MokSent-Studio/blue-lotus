@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#050608">
-    <title>Nefertem - Tracing the Duat</title>
+    <title>Nefertem - Where Stars Align</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,700&family=Inter:wght@200;400&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -149,13 +149,17 @@
             100% { opacity: 1; transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 20px var(--gold)); }
         }
         .final-message-bg {
-            fill: rgba(5, 6, 8, 0.9); /* Dark semi-transparent background */
-            stroke: var(--gold);
-            stroke-width: 0.5px;
             opacity: 0;
-            rx: 5;
+            fill: url(#messageGradient);
+            rx: 20;
+            ry: 20;
         }
-        .final-message-bg.reveal { animation: fadeIn 2s ease-out forwards; }
+        .final-message-bg.reveal { animation: bg-appear 3s ease-out forwards; }
+        @keyframes bg-appear {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 0.95; transform: scale(1); }
+        }
+        
         .final-message { 
             font-family: 'Playfair Display', serif; 
             fill: var(--gold); 
@@ -257,7 +261,7 @@
     <div class="ambient-glow"></div><div class="water-pattern"></div>
     <div class="header"><h1>Nefertem</h1></div>
     <div class="lotus-container" id="lotus"><div class="stamen" id="stamen"></div></div>
-    <div class="quote" id="quote">Happy Valentines. <strong>Something light to go with your heavy week</strong></div>
+    <div class="quote" id="quote">Like a lotus seeking light<br>Love blooms in the darkness <br>Happy Valentines - Something light for a heavy week</div>
     <div id="progress-indicator">
         <span class="current">1</span>
         <span class="total">of 7 constellations</span>
@@ -517,13 +521,13 @@
 
             // Step 2: Calculate center points of all completed constellations (updated positions)
             const centers = [
-                [40, 18],  // Barque of Ra (top-left)
-                [75, 40],  // Scales of Ma'at (right-upper)
-                [25, 84],  // Pillar of Osiris (bottom-left)
-                [50, 57],  // Sacred Ankh (center)
-                [85, 64],  // Scarab of Khepri (right-lower)
-                [13, 53],  // Feather of Truth (left-middle)
-                [75, 92]   // Sistrum of Hathor (bottom-right)
+                [40, 18],  // Cupid's Arrow (top-left)
+                [75, 40],  // Lover's Knot (right-upper)
+                [25, 84],  // Twin Flames (bottom-left)
+                [50, 57],  // Heart of Devotion (center)
+                [85, 64],  // Infinity's Embrace (right-lower)
+                [13, 53],  // Rose of Passion (left-middle)
+                [75, 92]   // Crown of Love (bottom-right)
             ];
 
             // Draw connecting lines in a sacred geometry pattern
@@ -545,29 +549,22 @@
                 }
             }, 1000);
 
-            // Step 3: Create Eye of Horus symbol at the geometric center
+            // Step 3: Create heart symbol at the geometric center with lotus blue accents
             setTimeout(() => {
-                const eyeGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                eyeGroup.classList.add('sacred-symbol', 'reveal');
-                eyeGroup.setAttribute('transform', 'translate(50, 55)'); // Updated geometric center
+                const heartGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                heartGroup.classList.add('sacred-symbol', 'reveal');
+                heartGroup.setAttribute('transform', 'translate(50, 55) scale(1.5)'); // Updated geometric center
 
-                // Eye of Horus outline (simplified sacred geometry)
-                const eyePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                eyePath.setAttribute('d', 'M-15,-5 Q-10,-10 0,-10 Q10,-10 15,-5 Q10,0 0,5 Q-10,0 -15,-5 M0,-8 L0,5 M-8,0 Q-5,3 0,3 Q5,3 8,0');
-                eyePath.setAttribute('stroke', 'var(--gold)');
-                eyePath.setAttribute('stroke-width', '1.5');
-                eyePath.setAttribute('fill', 'none');
+                // Heart shape with blue-to-gold gradient
+                const heartPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                heartPath.setAttribute('d', 'M0,5 C0,0 -5,-3 -8,0 C-10,2 -10,5 -8,8 L0,15 L8,8 C10,5 10,2 8,0 C5,-3 0,0 0,5 Z');
+                heartPath.setAttribute('stroke', 'url(#heartGradient)');
+                heartPath.setAttribute('stroke-width', '1.8');
+                heartPath.setAttribute('fill', 'url(#heartFillGradient)');
+                heartPath.setAttribute('fill-opacity', '0.2');
 
-                // Add a central circle (pupil)
-                const pupil = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                pupil.setAttribute('cx', '0');
-                pupil.setAttribute('cy', '-3');
-                pupil.setAttribute('r', '2');
-                pupil.setAttribute('fill', 'var(--gold)');
-
-                eyeGroup.appendChild(eyePath);
-                eyeGroup.appendChild(pupil);
-                starCanvas.appendChild(eyeGroup);
+                heartGroup.appendChild(heartPath);
+                starCanvas.appendChild(heartGroup);
 
                 // Play final sound and haptic
                 playFinalRevelation();
@@ -585,6 +582,62 @@
             }, 4000);
             
             setTimeout(() => {
+                // Add gradients to defs if not already present
+                let defs = starCanvas.querySelector('defs');
+                if (!defs) {
+                    defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+                    starCanvas.appendChild(defs);
+                }
+                
+                // Message background gradient (lotus blue to darker blue)
+                const messageGradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+                messageGradient.setAttribute('id', 'messageGradient');
+                messageGradient.setAttribute('x1', '0%');
+                messageGradient.setAttribute('y1', '0%');
+                messageGradient.setAttribute('x2', '0%');
+                messageGradient.setAttribute('y2', '100%');
+                const msgStop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                msgStop1.setAttribute('offset', '0%');
+                msgStop1.setAttribute('stop-color', '#4D59AE'); // Lotus mid-blue
+                msgStop1.setAttribute('stop-opacity', '0.85');
+                const msgStop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                msgStop2.setAttribute('offset', '100%');
+                msgStop2.setAttribute('stop-color', '#2A3362'); // Lotus dark-blue
+                msgStop2.setAttribute('stop-opacity', '0.95');
+                messageGradient.appendChild(msgStop1);
+                messageGradient.appendChild(msgStop2);
+                defs.appendChild(messageGradient);
+                
+                // Heart stroke gradient (blue to gold)
+                const heartGradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+                heartGradient.setAttribute('id', 'heartGradient');
+                heartGradient.setAttribute('x1', '0%');
+                heartGradient.setAttribute('y1', '0%');
+                heartGradient.setAttribute('x2', '0%');
+                heartGradient.setAttribute('y2', '100%');
+                const heartStop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                heartStop1.setAttribute('offset', '0%');
+                heartStop1.setAttribute('stop-color', '#7A88E2'); // Lotus light-blue
+                const heartStop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                heartStop2.setAttribute('offset', '100%');
+                heartStop2.setAttribute('stop-color', '#C5A059'); // Gold
+                heartGradient.appendChild(heartStop1);
+                heartGradient.appendChild(heartStop2);
+                defs.appendChild(heartGradient);
+                
+                // Heart fill gradient (subtle blue)
+                const heartFillGradient = document.createElementNS("http://www.w3.org/2000/svg", "radialGradient");
+                heartFillGradient.setAttribute('id', 'heartFillGradient');
+                const heartFillStop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                heartFillStop1.setAttribute('offset', '0%');
+                heartFillStop1.setAttribute('stop-color', '#7A88E2');
+                const heartFillStop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                heartFillStop2.setAttribute('offset', '100%');
+                heartFillStop2.setAttribute('stop-color', '#4D59AE');
+                heartFillGradient.appendChild(heartFillStop1);
+                heartFillGradient.appendChild(heartFillStop2);
+                defs.appendChild(heartFillGradient);
+                
                 // Add a glowing background circle
                 const glowBg = document.createElementNS("http://www.w3.org/2000/svg", "circle");
                 glowBg.setAttribute('cx', '50%');
@@ -593,8 +646,7 @@
                 glowBg.setAttribute('fill', 'url(#radialGlow)');
                 glowBg.classList.add('final-glow-bg', 'reveal');
                 
-                // Create gradient for glow
-                const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+                // Create gradient for ambient glow
                 const gradient = document.createElementNS("http://www.w3.org/2000/svg", "radialGradient");
                 gradient.setAttribute('id', 'radialGlow');
                 const stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
@@ -608,23 +660,22 @@
                 gradient.appendChild(stop1);
                 gradient.appendChild(stop2);
                 defs.appendChild(gradient);
-                starCanvas.appendChild(defs);
                 starCanvas.appendChild(glowBg);
-
-                // Add background rect for text readability
-                const msgBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                msgBg.setAttribute('x', '10%');
-                msgBg.setAttribute('y', '78%');
-                msgBg.setAttribute('width', '80%');
-                msgBg.setAttribute('height', '18%');
-                msgBg.classList.add('final-message-bg', 'reveal');
-                starCanvas.appendChild(msgBg);
+                
+                // Background panel for text legibility (with lotus blue)
+                const bgPanel = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                bgPanel.setAttribute('x', '20%');
+                bgPanel.setAttribute('y', '80%');
+                bgPanel.setAttribute('width', '60%');
+                bgPanel.setAttribute('height', '16%');
+                bgPanel.classList.add('final-message-bg', 'reveal');
+                starCanvas.appendChild(bgPanel);
                 
                 // Main message
                 const message1 = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 message1.setAttribute('x', '50%');
                 message1.setAttribute('y', '85%');
-                message1.textContent = 'The Duat is Complete';
+                message1.textContent = 'The Stars Have Aligned';
                 message1.classList.add('final-message', 'reveal');
                 starCanvas.appendChild(message1);
                 
@@ -632,7 +683,7 @@
                 const message2 = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 message2.setAttribute('x', '50%');
                 message2.setAttribute('y', '92%');
-                message2.textContent = 'Hope You Liked It';
+                message2.textContent = 'You Have Written Love in the Stars. Hope you enjoyed :m';
                 message2.classList.add('final-message-subtitle', 'reveal');
                 starCanvas.appendChild(message2);
             }, 5000);
@@ -701,39 +752,39 @@
         // --- MINIGAME LOGIC WITH FREEFORM CONNECTIONS ---
         const constellations = [ 
             { 
-                name: "Barque of Ra", 
+                name: "Cupid's Arrow", 
                 stars: [[15, 20], [28, 16], [40, 20], [52, 16], [65, 20]],
-                connections: [[0,1], [1,2], [2,3], [3,4]] // Sequential boat
+                connections: [[0,1], [1,2], [2,3], [3,4]] // Arrow shaft
             }, 
             { 
-                name: "Scales of Ma'at", 
+                name: "Lover's Knot", 
                 stars: [[75, 35], [68, 44], [61, 40], [82, 44], [89, 40]],
-                connections: [[0,1], [1,2], [0,3], [3,4]] // Balanced scales
+                connections: [[0,1], [1,2], [0,3], [3,4]] // Intertwined pattern
             }, 
             { 
-                name: "Pillar of Osiris", 
+                name: "Twin Flames", 
                 stars: [[25, 75], [25, 83], [20, 90], [30, 90]],
-                connections: [[0,1], [1,2], [1,3]] // Vertical pillar
+                connections: [[0,1], [1,2], [1,3]] // Two rising flames
             },
             {
-                name: "The Sacred Ankh",
+                name: "Heart of Devotion",
                 stars: [[50, 45], [43, 53], [57, 53], [50, 53], [50, 61], [50, 69]],
-                connections: [[0,1], [0,2], [0,3], [3,4], [4,5]] // Cross with loop
+                connections: [[0,1], [0,2], [0,3], [3,4], [4,5]] // Heart shape
             },
             {
-                name: "Scarab of Khepri",
+                name: "Infinity's Embrace",
                 stars: [[70, 65], [77, 61], [85, 60], [92, 62], [97, 67], [85, 70]],
-                connections: [[0,1], [1,2], [2,3], [3,4], [2,5], [1,5], [3,5]] // Beetle shape
+                connections: [[0,1], [1,2], [2,3], [3,4], [2,5], [1,5], [3,5]] // Infinity symbol
             },
             {
-                name: "Feather of Truth",
+                name: "Rose of Passion",
                 stars: [[15, 45], [19, 50], [18, 56], [14, 62], [10, 56], [11, 50]],
-                connections: [[0,1], [1,2], [2,3], [3,4], [4,5], [5,0]] // Feather outline
+                connections: [[0,1], [1,2], [2,3], [3,4], [4,5], [5,0]] // Rose bloom
             },
             {
-                name: "Sistrum of Hathor",
+                name: "Crown of Love",
                 stars: [[75, 85], [75, 92], [80, 95], [70, 95], [75, 98]],
-                connections: [[0,1], [1,2], [1,3], [2,4], [3,4]] // Musical instrument
+                connections: [[0,1], [1,2], [1,3], [2,4], [3,4]] // Crown points
             }
         ];
         let currentConstellation = 0, completedConnections = new Set(), isDrawing = false, currentLine, startingStar;
@@ -987,13 +1038,13 @@
             
             // Position labels strategically to avoid overlaps
             const labelPositions = [
-                [40, 28],  // Barque of Ra - below
-                [75, 50],  // Scales of Ma'at - below
-                [25, 70],  // Pillar of Osiris - above
-                [50, 78],  // Sacred Ankh - below
-                [85, 76],  // Scarab of Khepri - below
-                [13, 42],  // Feather of Truth - above
-                [75, 82]   // Sistrum of Hathor - above
+                [40, 28],  // Cupid's Arrow - below
+                [75, 50],  // Lover's Knot - below
+                [25, 70],  // Twin Flames - above
+                [50, 78],  // Heart of Devotion - below
+                [85, 76],  // Infinity's Embrace - below
+                [13, 42],  // Rose of Passion - above
+                [75, 82]   // Crown of Love - above
             ];
             
             nameLabel.setAttribute('x', `${labelPositions[currentConstellation][0]}%`);
